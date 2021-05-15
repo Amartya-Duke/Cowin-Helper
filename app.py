@@ -154,7 +154,8 @@ class CowinHelper:
         while True:
             print("Run count: {}".format(run_count))
             self.search_available_slots(state=SLOT_CONFIG['state'], districts=SLOT_CONFIG['districts'],
-                                        min_age_limit=18, weeks=6)
+                                        min_age_limit=SLOT_CONFIG['min_age'], dose=SLOT_CONFIG['dose'],
+                                        weeks=SLOT_CONFIG['weeks'])
             is_notified = self.notify()
             if is_notified:
                 break

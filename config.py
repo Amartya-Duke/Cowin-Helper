@@ -12,6 +12,9 @@ class APIList:
 PHONE_NUMBER = '***'
 
 SLOT_CONFIG = {
+    'min_age': 45,
+    'weeks': 6,
+    'dose': 1,
     'state': "West Bengal",
     'districts': ['Hoogly', 'Howrah', 'Kolkata']
 }
