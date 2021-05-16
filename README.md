@@ -2,11 +2,12 @@
 This tool has been built using Co-WIN APIs  published 
 <a href="https://apisetu.gov.in/public/marketplace/api/cowin">here</a>
 
-Cowin exposes 2 types of APIs for checking slot availability - Public and Protected. Public APIs does not
-requires any authentication and the date is not real-time.
+Cowin exposes 2 types of APIs for checking slot availability - <i>Public</i> and <i>Protected</i>.
+
+<i>Public APIs</i> does not requires any authentication and the data is not real-time.
 The official documentation quotes - "The appointment availability data is cached and may be upto 30 minutes old" 
 
-To use the Protected API user must be authenticated using OTP.
+To use the <i>Protected API</i>, user must be authenticated using OTP.
 
 This tool lets you: 
 - Configure slot check parameters.
