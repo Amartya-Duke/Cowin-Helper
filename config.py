@@ -17,7 +17,7 @@ SLOT_CONFIG = {
     'weeks': 6,
     'dose': 1,
     'state': "West Bengal",
-    'districts': ['Hoogly', 'Howrah', 'Kolkata']
+    'districts': ['Hoogly', 'Howrah', 'Kolkata']  # should be ordered in choice of preference
 }
 
 TWILIO_ACCOUNT_SID = "***"
