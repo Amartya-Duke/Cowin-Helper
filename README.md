@@ -7,7 +7,7 @@ Cowin exposes 2 types of APIs for checking slot availability - <i>Public</i> and
 <i>Public APIs</i> does not requires any authentication and the data is not real-time.
 The official documentation quotes - "The appointment availability data is cached and may be upto 30 minutes old" 
 
-To use the <i>Protected API</i>, user must be authenticated using OTP.
+To use the <i>Protected API</i>, user must be authenticated using OTP. The Auth token expires every 15mins or so hence a re-auth using OTP is required every time a request fails with status 401 (Unauthorized access). 
 
 This tool lets you: 
 - Configure slot check parameters.
