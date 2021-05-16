@@ -1,11 +1,13 @@
 import datetime
 import hashlib
 import time
+import webbrowser
 
 import requests
 from twilio.rest import Client
 
-from CowinHelper.config import APIList, PHONE_NUMBER, SLOT_CONFIG, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, SECRET
+from CowinHelper.config import APIList, PHONE_NUMBER, SLOT_CONFIG, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, SECRET, \
+    BROWSER_PATH
 
 
 class Slot:
@@ -164,29 +166,31 @@ class CowinHelper:
     def book_slot(self):
         if not self.available_slots:
             return
-        request_type, api_path = APIList.SCHEDULE_ANOINTMENT
-        for district in SLOT_CONFIG['districts']:  # searching in order of district preference
-            available_slots = list(filter(lambda slot: slot.district, self.available_slots))
-            if available_slots:
-                for slot in available_slots:
-                    time_slots = slot.time_slots
-                    for time_slot in time_slots:
-                        payload = {'center_id': slot.center_id, 'session_id': slot.session_id,
-                                   'beneficiaries': self.beneficiaries, 'slot': time_slot, 'dose': SLOT_CONFIG['dose']}
-                        print(payload)
-                        try:
-                            payload['captcha'] = 'kfmxg'
-                            self.make_request(request_type, api_path, payload=payload)
-                        except:
-                            print("Failed booking slot")
-                            return
-                        print("Slot booked at {} | {}".format(str(slot), time_slot))
-                        self.slot_booked = True
-                        break
-                    if self.slot_booked:
-                        break
-            if self.slot_booked:
-                break
+        # request_type, api_path = APIList.SCHEDULE_ANOINTMENT
+        # for district in SLOT_CONFIG['districts']:  # searching in order of district preference
+        #    available_slots = list(filter(lambda slot: slot.district, self.available_slots))
+        #    if available_slots:
+        #       for slot in available_slots:
+        #            time_slots = slot.time_slots
+        #            for time_slot in time_slots:
+        #                payload = {'center_id': slot.center_id, 'session_id': slot.session_id,
+        #                           'beneficiaries': self.beneficiaries, 'slot': time_slot, 'dose': SLOT_CONFIG['dose']}
+        #                print(payload)
+        #                try:
+        #                    payload['captcha'] = 'kfmxg'
+        #                    self.make_request(request_type, api_path, payload=payload)
+        #                except:
+        #                    print("Failed booking slot")
+        #                    return
+        #                print("Slot booked at {} | {}".format(str(slot), time_slot))
+        #                self.slot_booked = True
+        #                break
+        #            if self.slot_booked:
+        #                break
+        #    if self.slot_booked:
+        #        break
+        tab_to_open = "https://selfregistration.cowin.gov.in/dashboard"
+        webbrowser.get(BROWSER_PATH).open(tab_to_open)
 
     def run_periodically(self, interval_in_mins):
         run_count = 1
