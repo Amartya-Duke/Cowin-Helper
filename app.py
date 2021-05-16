@@ -189,6 +189,7 @@ class CowinHelper:
         #                break
         #    if self.slot_booked:
         #        break
+        print("Opening browser...")
         tab_to_open = "https://selfregistration.cowin.gov.in/dashboard"
         webbrowser.get(BROWSER_PATH).open(tab_to_open)
 
