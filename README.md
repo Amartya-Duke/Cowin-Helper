@@ -2,9 +2,16 @@
 This tool has been built using Co-WIN APIs  published 
 <a href="https://apisetu.gov.in/public/marketplace/api/cowin">here</a>
 
-Key features: 
+Cowin exposes 2 types of APIs for checking slot availability - Public and Protected. Public APIs does not
+requires any authentication and the date is not real-time.
+The official documentation quotes - "The appointment availability data is cached and may be upto 30 minutes old" 
+
+To use the Protected API user must be authenticated using OTP.
+
+This tool lets you: 
+- Configure slot check parameters.
 - Authenticate using OTP
-- Check for available slots (by district)
+- Check for available slots (by district). The flag USE_PUBLIC_API at config.py acts as switch for using Public or Protected API.
 - Periodically check for slots-availability and notify via SMS once slot becomes available
 - Auto-book slot. Booking slot requires captcha to be filled which requires a manual intervention, hence it cannot be automated.
 However, this tool will open up a browser tab landing at Cowin portal immediately once slots become available. 

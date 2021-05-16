@@ -6,8 +6,9 @@ import webbrowser
 import requests
 from twilio.rest import Client
 
-from CowinHelper.config import APIList, PHONE_NUMBER, SLOT_CONFIG, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, SECRET, \
-    BROWSER_PATH
+from CowinHelper.api_list import APIList
+from CowinHelper.config import PHONE_NUMBER, SLOT_CONFIG, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, SECRET, \
+    BROWSER_PATH, USE_PUBLIC_API, TWILIO_SENDER_NUMBER
 
 
 class Slot:
@@ -55,6 +56,7 @@ class CowinHelper:
         elif response.status_code == 401:
             print("Authentication required")
             self.session.close()
+            print(api_path)
             auth_token = self.authenticate()
             self.session = requests.Session()
             self.session.headers.update(CowinHelper.default_headers)
@@ -85,6 +87,9 @@ class CowinHelper:
         return token
 
     def fetch_beneficiaries(self):
+        if USE_PUBLIC_API:
+            print("Beneficiaries cannot be fetched without Authentication. USE_PUBLIC_API is set to True")
+            return
         request_type, api_path = APIList.LIST_BENEFICIARIES
         response = self.make_request(request_type, api_path)
         print(response)
@@ -116,7 +121,7 @@ class CowinHelper:
             start_date = datetime.datetime.now() + datetime.timedelta(days=i * 7)
             for district_id in district_ids:
                 query_params = {'district_id': district_id, 'date': datetime.datetime.strftime(start_date, '%d-%m-%Y')}
-                request_type, api_path = APIList.SESSIONS_BY_DISTRICT
+                request_type, api_path = APIList.SESSIONS_BY_DISTRICT_PUBLIC if USE_PUBLIC_API else APIList.SESSIONS_BY_DISTRICT
                 response = self.make_request(request_type, api_path, params=query_params)
                 centers = response['centers']
                 for center in centers:
@@ -154,7 +159,7 @@ class CowinHelper:
             message = client.messages \
                 .create(
                 body=body,
-                from_='+12105987550',
+                from_=TWILIO_SENDER_NUMBER,
                 to="+91" + str(PHONE_NUMBER)
             )
             print(message.sid)
