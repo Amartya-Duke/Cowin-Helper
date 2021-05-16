@@ -8,13 +8,15 @@ from twilio.rest import Client
 from CowinHelper.config import APIList, PHONE_NUMBER, SLOT_CONFIG, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, SECRET
 
 
-class Session:
-    def __init__(self, session_id, date, center_name, district, vaccine_type, slots_available):
+class Slot:
+    def __init__(self, session_id, center_id, date, center_name, district, vaccine_type, time_slots, slots_available):
         self.session_id = session_id
+        self.center_id = center_id
         self.date = date
         self.center_name = center_name
         self.district = district
         self.vaccine_type = vaccine_type
+        self.time_slots = time_slots
         self.slots_available = slots_available
 
     def __str__(self):
@@ -26,23 +28,39 @@ class Session:
 
 
 class CowinHelper:
+    default_headers = {'Content-type': 'application/json',
+                       "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36",
+                       'origin': "https://selfregistration.cowin.gov.in",
+                       "referer": "https://selfregistration.cowin.gov.in/"}
+
     def __init__(self, mobile_number):
         self.mobile_number = mobile_number
-        self.available_sessions = []
-        self.token = ""
-        self.headers = {'Content-type': 'application/json',
-                        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36",
-                        'origin': "https://selfregistration.cowin.gov.in",
-                        "referer": "https://selfregistration.cowin.gov.in/"}
+        self.available_slots = []
+        self.session = None
+        self.district_id_map = dict()
+        self.last_notification_sent_time = None
+        self.slot_booked = False
+        self.beneficiaries = []
 
-    def make_request(self, request_type, api_path, payload=None, params={}):
-        response = requests.request(request_type, api_path, json=payload,
-                                    headers=self.headers, params=params)
+    def make_request(self, request_type, api_path, payload=None, params=None):
+        if not self.session:
+            self.session = requests.Session()
+            self.session.headers.update(CowinHelper.default_headers)
 
-        if response.status_code != 200:
+        response = self.session.request(request_type, api_path, json=payload, params=params if params else {})
+        if response.status_code == 200:
+            return response.json()
+        elif response.status_code == 401:
+            print("Authentication required")
+            self.session.close()
+            auth_token = self.authenticate()
+            self.session = requests.Session()
+            self.session.headers.update(CowinHelper.default_headers)
+            self.session.headers.update({'Authorization': 'Bearer ' + auth_token})
+            return self.make_request(request_type, api_path, payload, params)
+        else:
+            print(response.content)
             raise Exception("Request failed with status {}".format(response.status_code))
-
-        return response.json()
 
     def authenticate(self):
         request_type, api_path = APIList.GENERATE_OTP
@@ -59,29 +77,18 @@ class CowinHelper:
             'otp': otp_hash
         })
 
-        self.token = response['token']
-        self.headers['Authorization'] = 'Bearer ' + self.token
-        print(self.token)
+        token = response['token']
+        print(token)
         print("Authenticated")
+        return token
 
-    def list_beneficiaries(self):
-        if not self.token:
-            print("Authentication required. Retrying authentication")
-            retries = 5
-            while retries:
-                try:
-                    self.authenticate()
-                    break
-                except:
-                    time.sleep(20)
-                    retries -= 1
-            else:
-                print("Unable to authenticate")
-                return
+    def fetch_beneficiaries(self):
         request_type, api_path = APIList.LIST_BENEFICIARIES
         response = self.make_request(request_type, api_path)
         print(response)
-        print(response.json())
+        beneficiaries = response['beneficiaries']
+        benificiary_ids = [benificiary['beneficiary_reference_id'] for benificiary in beneficiaries]
+        self.beneficiaries = benificiary_ids
 
     def get_state_id(self, state_name):
         request_type, api_path = APIList.LIST_STATES
@@ -96,6 +103,7 @@ class CowinHelper:
         response = self.make_request(request_type, api_path)
         district_list = response['districts']
         myDistrict = list(filter(lambda districts: districts['district_name'] == district_name, district_list))[0]
+        self.district_id_map[myDistrict['district_id']] = district_name
         return myDistrict['district_id']
 
     def search_available_slots(self, state, districts, min_age_limit, dose=1, weeks=4):
@@ -110,65 +118,100 @@ class CowinHelper:
                 response = self.make_request(request_type, api_path, params=query_params)
                 centers = response['centers']
                 for center in centers:
+                    center_id = center['center_id']
                     center_name = center['name']
-                    for session in center['sessions']:
-                        if session['available_capacity_dose{}'.format(dose)] == 0:
+                    for session in center['sessions']:  # spanning across multiple dates
+                        if session['available_capacity_dose{dose_no}'.format(dose_no=dose)] == 0:
                             continue
                         vaccine = session['vaccine']
                         date = session['date']
                         session_id = session['session_id']
-                        available_session_list.append(Session(session_id, date, center_name, district_id, vaccine,
-                                                              session['available_capacity_dose{}'.format(dose)]))
-        self.available_sessions = available_session_list
+                        time_slots = session['slots']
+                        slot = Slot(session_id, center_id, date, center_name, self.district_id_map[district_id],
+                                    vaccine, time_slots,
+                                    session['available_capacity_dose{}'.format(dose)])
+                        available_session_list.append(slot)
+                        print("Available Slot: {}".format(str(slot)))
+        self.available_slots = available_session_list
 
     def notify(self):
-        if not self.available_sessions:
-            return False
-        print("Sessions available:")
+        if not self.available_slots:
+            return
         account_sid = TWILIO_ACCOUNT_SID
         auth_token = TWILIO_AUTH_TOKEN
         client = Client(account_sid, auth_token)
 
-        body = "Sessions available: {total} \n".format(total=len(self.available_sessions))
-        for session in self.available_sessions:
-            print(str(session))
-            body += str(session)
-            body += '\n'
+        body = "Sessions available: {total} \n".format(total=len(self.available_slots))
+        for index, session in enumerate(self.available_slots):
+            if index <= 5:
+                body += str(session)
+                body += '\n'
 
-        message = client.messages \
-            .create(
-            body=body,
-            from_='+12105987550',
-            to="+91" + str(PHONE_NUMBER)
-        )
+        if not self.last_notification_sent_time or abs((
+                                                               self.last_notification_sent_time - datetime.datetime.now()).total_seconds()) / 60 > 0.5:  # send another message only after an hour
+            message = client.messages \
+                .create(
+                body=body,
+                from_='+12105987550',
+                to="+91" + str(PHONE_NUMBER)
+            )
+            print(message.sid)
+            self.last_notification_sent_time = datetime.datetime.now()
+        else:
+            print("Not sending SMS. Time between prev SMS and now: {}mins".format(
+                abs((self.last_notification_sent_time - datetime.datetime.now()).total_seconds()) / 60))
 
-        print(message.sid)
-        return True
-
-    def book_slot(self, session):
-        if not self.available_sessions:
+    def book_slot(self):
+        if not self.available_slots:
             return
+        request_type, api_path = APIList.SCHEDULE_ANOINTMENT
+        for district in SLOT_CONFIG['districts']:  # searching in order of district preference
+            available_slots = list(filter(lambda slot: slot.district, self.available_slots))
+            if available_slots:
+                for slot in available_slots:
+                    time_slots = slot.time_slots
+                    for time_slot in time_slots:
+                        payload = {'center_id': slot.center_id, 'session_id': slot.session_id,
+                                   'beneficiaries': self.beneficiaries, 'slot': time_slot, 'dose': SLOT_CONFIG['dose']}
+                        print(payload)
+                        try:
+                            payload['captcha'] = 'kfmxg'
+                            self.make_request(request_type, api_path, payload=payload)
+                        except:
+                            print("Failed booking slot")
+                            return
+                        print("Slot booked at {} | {}".format(str(slot), time_slot))
+                        self.slot_booked = True
+                        break
+                    if self.slot_booked:
+                        break
+            if self.slot_booked:
+                break
 
     def run_periodically(self, interval_in_mins):
         run_count = 1
-        while True:
+        self.fetch_beneficiaries()
+        while not self.slot_booked:
+            self.available_slots = []
             print("Run count: {}".format(run_count))
             self.search_available_slots(state=SLOT_CONFIG['state'], districts=SLOT_CONFIG['districts'],
                                         min_age_limit=SLOT_CONFIG['min_age'], dose=SLOT_CONFIG['dose'],
                                         weeks=SLOT_CONFIG['weeks'])
-            is_notified = self.notify()
-            if is_notified:
-                break
+            if self.available_slots:
+                self.notify()
+                self.book_slot()
+
             run_count += 1
             time.sleep(interval_in_mins * 60)
-
+        else:
+            print("Exiting ...")
 
 if __name__ == '__main__':
     helper = CowinHelper(PHONE_NUMBER)
-    helper.authenticate()
-    # helper.list_beneficiaries()
+    # .authenticate()
+    #helper.list_beneficiaries()
     # sessions = helper.search_available_slots(state=SLOT_CONFIG['state'], districts=SLOT_CONFIG['districts'], min_age_limit=45, weeks=6)
     # helper.notify()
     # helper.book_slot()
 
-    helper.run_periodically(interval_in_mins=0.1)
+    helper.run_periodically(interval_in_mins=1)
