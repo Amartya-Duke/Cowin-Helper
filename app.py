@@ -203,9 +203,9 @@ class CowinHelper:
         self.fetch_beneficiaries()
         while not self.slot_booked:
             self.available_slots = []
-            print("Run count: {}".format(run_count))
+            print("{} Run count: {}".format(datetime.datetime.now().strftime("%H:%M:%S"), run_count))
             self.search_available_slots(state=SLOT_CONFIG['state'], districts=SLOT_CONFIG['districts'],
-                                        min_age_limit=SLOT_CONFIG['min_age'], dose=SLOT_CONFIG['dose'],
+                                        min_age_limit=SLOT_CONFIG['min_age'], dose=SLOT_CONFIG['dose_no'],
                                         weeks=SLOT_CONFIG['weeks'])
             if self.available_slots:
                 self.notify()
