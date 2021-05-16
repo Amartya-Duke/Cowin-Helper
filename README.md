@@ -18,3 +18,10 @@ This tool lets you:
 However, this tool will open up a browser tab landing at Cowin portal immediately once slots become available. 
 ### Note
 -  SMS functionality is provided by Twilio ( https://www.twilio.com/ )
+-  To use this feature, create a trial account at Twilio and set the following params in config.py: 
+    
+    TWILIO_ACCOUNT_SID
+    
+    TWILIO_AUTH_TOKEN
+    
+    TWILIO_SENDER_NUMBER
