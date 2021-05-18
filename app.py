@@ -8,7 +8,8 @@ from twilio.rest import Client
 
 from CowinHelper.api_list import APIList
 from CowinHelper.config import PHONE_NUMBER, SLOT_CONFIG, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, SECRET, \
-    BROWSER_PATH, USE_PUBLIC_API, TWILIO_SENDER_NUMBER
+    BROWSER_PATH, USE_PUBLIC_API, TWILIO_SENDER_NUMBER, AUTO_READ_OTP
+from CowinHelper.otp_utils.read_otp import check_otp
 
 
 class Slot:
@@ -31,6 +32,7 @@ class Slot:
 
 
 class CowinHelper:
+    MAX_RETRY_TO_REAUTH = 5
     default_headers = {'Content-type': 'application/json',
                        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36",
                        'origin': "https://selfregistration.cowin.gov.in",
@@ -57,7 +59,11 @@ class CowinHelper:
             print("Authentication required")
             self.session.close()
             print(api_path)
-            auth_token = self.authenticate()
+            success, auth_token = self.authenticate()
+            if not success:
+                raise Exception(
+                    "Re-Authentication limit reached. OTP not received or invlid OTP entered for {} consecutive resend".format(
+                        CowinHelper.MAX_RETRY_TO_REAUTH))
             self.session = requests.Session()
             self.session.headers.update(CowinHelper.default_headers)
             self.session.headers.update({'Authorization': 'Bearer ' + auth_token})
@@ -66,25 +72,42 @@ class CowinHelper:
             print(response.content)
             raise Exception("Request failed with status {}".format(response.status_code))
 
-    def authenticate(self):
+    def authenticate(self, retry=0):
+
+        if retry == CowinHelper.MAX_RETRY_TO_REAUTH:
+            print("Re-Authentication retry limit reached. Exiting..")
+            return False, None
+
         request_type, api_path = APIList.GENERATE_OTP
         response = self.make_request(request_type, api_path, payload={'mobile': self.mobile_number, "secret": SECRET})
 
         txn_id = response['txnId']
         print("Otp sent to {}".format(self.mobile_number))
-        otp = input("Enter OTP: ")
+
+        if AUTO_READ_OTP:
+            otp = check_otp(PHONE_NUMBER, timeout=180)
+        else:
+            otp = input("Enter OTP: ")
+        if not otp:
+            return self.authenticate(retry=retry + 1)
+
+        print("Got OTP :{}".format(otp))
         otp_hash = hashlib.sha256(otp.encode()).hexdigest()
 
         request_type, api_path = APIList.VALIDATE_OTP
-        response = self.make_request(request_type, api_path, payload={
-            'txnId': txn_id,
-            'otp': otp_hash
-        })
+        try:
+            response = self.make_request(request_type, api_path, payload={
+                'txnId': txn_id,
+                'otp': otp_hash
+            })
+        except Exception as e:  # most common reason of failure - Incorrect OTP
+            print(e)
+            return self.authenticate(retry=retry + 1)
 
         token = response['token']
         print(token)
         print("Authenticated")
-        return token
+        return True, token
 
     def fetch_beneficiaries(self):
         if USE_PUBLIC_API:
@@ -128,7 +151,8 @@ class CowinHelper:
                     center_id = center['center_id']
                     center_name = center['name']
                     for session in center['sessions']:  # spanning across multiple dates
-                        if session['available_capacity_dose{dose_no}'.format(dose_no=dose)] == 0:
+                        if session['min_age_limit'] > min_age_limit or session[
+                            'available_capacity_dose{dose_no}'.format(dose_no=dose)] == 0:
                             continue
                         vaccine = session['vaccine']
                         date = session['date']
@@ -138,7 +162,7 @@ class CowinHelper:
                                     vaccine, time_slots,
                                     session['available_capacity_dose{}'.format(dose)])
                         available_session_list.append(slot)
-                        print("Available Slot: {}".format(str(slot)))
+                        print("Available Slot: {}".format(session))
         self.available_slots = available_session_list
 
     def notify(self):
