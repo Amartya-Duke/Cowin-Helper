@@ -64,7 +64,7 @@ class OTP_SERVER:
     def start(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.bind((self.host, self.port))
-        s.listen(backlog=10)
+        s.listen(10)
         self.socket = s
         print("Socket created. Server running at {}:{}".format(self.host, self.port))
 
