@@ -66,7 +66,7 @@ class OTP_SERVER:
         s.bind((self.host, self.port))
         s.listen(10)
         self.socket = s
-        print("Socket created. Server running at {}:{}".format(self.host, self.port))
+        print("Socket created. OTP Server running at {}:{}".format(self.host, self.port))
 
         while True:
             conn, addr = self.socket.accept()
