@@ -36,3 +36,9 @@ To use the auto read OTP feature:
     TWILIO_AUTH_TOKEN
     
     TWILIO_SENDER_NUMBER
+
+
+
+
+https://github.com/amartya-s/Cowin-Helper/assets/13063884/4b4ad60b-73f4-4aae-9057-bd4a4025d25c
+
