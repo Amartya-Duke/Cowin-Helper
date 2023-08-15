@@ -14,7 +14,7 @@ This tool lets you:
 - Authenticate using OTP and Auto read OTP.
 - Check for available slots (by district). The flag USE_PUBLIC_API at config.py acts as switch for using Public or Protected API.
 - Periodically check for slots-availability and notify via SMS once slot becomes available. <i>(Using Protected API requires re-auth every 15mins)</i>
-- Auto-book slot. Booking slot requires captcha to be filled which requires a manual intervention, hence it cannot be automated.
+- Auto-book slot. Booking slot requires captcha to be filled which requires a manual intervention.
 However, this tool will open up a browser tab landing at Cowin portal immediately once slots become available. 
 
 To use the auto read OTP feature:
